@@ -1,17 +1,9 @@
 var baseUrl = "https://games-world.herokuapp.com";
 
 class ServerApi {
-  static getGames() {
-    fetch(baseUrl + "/games", { method: "GET" })
-      .then(function (response) {
-        return response.json();
-      })
-      .then(function (jsonResponse) {
-        const games = jsonResponse;
-        games.forEach(function (game) {
-          displayGame(game);
-        });
-      });
+  static async getGames() {
+    const response = await fetch(baseUrl + "/games", { method: "GET" });
+    return response.json();
   }
 
   static async saveGame(game) {
@@ -34,38 +26,67 @@ class ServerApi {
   }
 }
 
-ServerApi.getGames();
+class GameDOM {
+  constructor(title, description, _id) {
+    this.title = title;
+    this.description = description;
+    this.id = _id;
+  }
+
+  createGameDOM() {
+    const gameDOM = document.createElement("div");
+    gameDOM.innerHTML = `
+      <h3>${this.title}</h3>
+      <p>${this.description}<p>`;
+
+    gameDOM.classList.add("gamesList");
+
+    return gameDOM;
+  }
+}
+
+displayGames();
 
 const container = document.querySelector("#container");
 
-function displayGame(game) {
-  const gameDOM = createGameDOM(game);
-  const deleteButton = createDeleteButton();
+async function displayGames() {
+  try {
+    const games = await ServerApi.getGames();
+    console.log(games);
 
-  deleteButton.addEventListener("click", function () {
-    ServerApi.deleteGame(game._id)
-      .then(function (response) {
-        console.log(response);
-        container.removeChild(gameDOM);
-      })
-      .catch(function (error) {
-        console.log(error);
+    games.forEach(function (game) {
+      const gameDOM = new GameDOM(game.title, game.description).createGameDOM();
+      const deleteButton = createDeleteButton();
+      deleteButton.addEventListener("click", function () {
+        ServerApi.deleteGame(game._id).then(function (response) {
+          console.log(response);
+          container.removeChild(gameDOM);
+        });
       });
-  });
-
-  container.appendChild(gameDOM);
-  gameDOM.appendChild(deleteButton);
+      gameDOM.appendChild(deleteButton);
+      container.appendChild(gameDOM);
+    });
+  } catch (error) {
+    console.log(error);
+    container.innerHTML = "Server error";
+  }
 }
 
-function createGameDOM(game) {
-  const gameDOM = document.createElement("div");
-  gameDOM.innerHTML = `
-    <h3>${game.title}</h3>
-    <p>${game.description}<p>`;
+const addGameButton = document.querySelector("#addGameButton");
+addGameButton.addEventListener("click", addGame);
 
-  gameDOM.classList.add("gamesList");
-
-  return gameDOM;
+function addGame() {
+  const game = getGameData();
+  const container = document.querySelector("#container");
+  container.innerHTML = "";
+  ServerApi.saveGame(game)
+    .then(function (response) {
+      console.log(response);
+      displayGames(response);
+    })
+    .catch(function (error) {
+      console.log(error);
+    });
 }
 
 function getGameData() {
@@ -76,21 +97,6 @@ function getGameData() {
     title: gameTitle,
     description: gameDescription,
   };
-}
-
-const addGameButton = document.querySelector("#addGameButton");
-addGameButton.addEventListener("click", addGame);
-
-function addGame() {
-  const game = getGameData();
-  ServerApi.saveGame(game)
-    .then(function (response) {
-      console.log(response);
-      displayGame(response);
-    })
-    .catch(function (error) {
-      console.log(error);
-    });
 }
 
 function createDeleteButton() {
